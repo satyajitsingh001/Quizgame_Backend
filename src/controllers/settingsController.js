@@ -1,5 +1,6 @@
 import CompetitionSettings from '../models/CompetitionSettings.js';
 import GameState from '../models/GameState.js';
+import Question from '../models/Question.js';
 import { createAuditLog } from '../middleware/auth.js';
 
 export const getSettings = async (req, res) => {
@@ -24,6 +25,17 @@ export const updateSettings = async (req, res) => {
     const previousValue = settings.toObject();
     Object.assign(settings, req.body);
     await settings.save();
+
+    // Synchronize round timers with questions in question bank
+    if (req.body.round1Timer) {
+      await Question.updateMany({ round: 1 }, { timerSeconds: Number(req.body.round1Timer) });
+    }
+    if (req.body.round2Timer) {
+      await Question.updateMany({ round: 2 }, { timerSeconds: Number(req.body.round2Timer) });
+    }
+    if (req.body.round3Timer) {
+      await Question.updateMany({ round: 3 }, { timerSeconds: Number(req.body.round3Timer) });
+    }
 
     // Also sync title and leaderboard visibility with live GameState
     let gameState = await GameState.findOne({ key: 'LIVE_GAME_STATE' });

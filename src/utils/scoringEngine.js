@@ -1,8 +1,12 @@
 /**
- * Pure scoring calculation functions according to PRD Rules.
+ * Pure scoring calculation functions according to configured PRD Rules.
  */
 
-export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSeconds, isFastestWinner = false) => {
+export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSeconds, isFastestWinner = false, rulesConfig = {}) => {
+  const basePointsConfig = typeof rulesConfig.points === 'number' ? rulesConfig.points : 10;
+  const bonusPointsConfig = typeof rulesConfig.bonus === 'number' ? rulesConfig.bonus : 5;
+  const threshold = rulesConfig.bonusThresholdSeconds || 15;
+
   if (!submittedOrder || !Array.isArray(submittedOrder) || submittedOrder.length === 0) {
     return {
       isCorrect: false,
@@ -30,8 +34,8 @@ export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSecon
     };
   }
 
-  const basePoints = 10;
-  const bonusPoints = isFastestWinner ? 5 : 0;
+  const basePoints = basePointsConfig;
+  const bonusPoints = isFastestWinner ? bonusPointsConfig : 0;
   const totalScore = basePoints + bonusPoints;
 
   return {
@@ -41,12 +45,16 @@ export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSecon
     penaltyPoints: 0,
     totalScore,
     explanation: isFastestWinner
-      ? `Correct sequence (+10 pts) + Fastest correct within 15s bonus (+5 pts) = ${totalScore} pts`
-      : 'Correct sequence (+10 pts)'
+      ? `Correct sequence (+${basePoints} pts) + Fastest correct within ${threshold}s bonus (+${bonusPoints} pts) = ${totalScore} pts`
+      : `Correct sequence (+${basePoints} pts)`
   };
 };
 
-export const evaluateRound2 = (submittedMappings, correctDefects) => {
+export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = {}) => {
+  const allCorrectPoints = typeof rulesConfig.allCorrectPoints === 'number' ? rulesConfig.allCorrectPoints : 10;
+  const partialPoints = typeof rulesConfig.partialPoints === 'number' ? rulesConfig.partialPoints : 5;
+  const penaltyPoints = typeof rulesConfig.penaltyPoints === 'number' ? rulesConfig.penaltyPoints : -5;
+
   // correctDefects is array of { id, label, correctTerm }
   if (!submittedMappings || typeof submittedMappings !== 'object' || Object.keys(submittedMappings).length === 0) {
     return {
@@ -54,9 +62,9 @@ export const evaluateRound2 = (submittedMappings, correctDefects) => {
       correctMatchesCount: 0,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: -5,
-      totalScore: -5,
-      explanation: 'Unanswered or timed out (-5 pts penalty)'
+      penaltyPoints: penaltyPoints,
+      totalScore: penaltyPoints,
+      explanation: `Unanswered or timed out (${penaltyPoints} pts penalty)`
     };
   }
 
@@ -74,21 +82,21 @@ export const evaluateRound2 = (submittedMappings, correctDefects) => {
     return {
       isCorrect: true,
       correctMatchesCount: correctCount,
-      basePoints: 10,
+      basePoints: allCorrectPoints,
       bonusPoints: 0,
       penaltyPoints: 0,
-      totalScore: 10,
-      explanation: `All ${correctCount}/${totalDefects} defect matches correct (+10 pts)`
+      totalScore: allCorrectPoints,
+      explanation: `All ${correctCount}/${totalDefects} defect matches correct (+${allCorrectPoints} pts)`
     };
   } else if (correctCount >= 3) {
     return {
       isCorrect: false,
       correctMatchesCount: correctCount,
-      basePoints: 5,
+      basePoints: partialPoints,
       bonusPoints: 0,
       penaltyPoints: 0,
-      totalScore: 5,
-      explanation: `${correctCount}/${totalDefects} correct matches (Partial credit +5 pts)`
+      totalScore: partialPoints,
+      explanation: `${correctCount}/${totalDefects} correct matches (Partial credit +${partialPoints} pts)`
     };
   } else {
     return {
@@ -96,14 +104,18 @@ export const evaluateRound2 = (submittedMappings, correctDefects) => {
       correctMatchesCount: correctCount,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: -5,
-      totalScore: -5,
-      explanation: `Only ${correctCount}/${totalDefects} correct matches. Fewer than 3 correct matches (-5 pts penalty)`
+      penaltyPoints: penaltyPoints,
+      totalScore: penaltyPoints,
+      explanation: `Only ${correctCount}/${totalDefects} correct matches. Fewer than 3 correct matches (${penaltyPoints} pts penalty)`
     };
   }
 };
 
-export const evaluateRound3 = (submittedOptions, correctOptions) => {
+export const evaluateRound3 = (submittedOptions, correctOptions, rulesConfig = {}) => {
+  const correctPoints = typeof rulesConfig.correctPoints === 'number' ? rulesConfig.correctPoints : 20;
+  const wrongPenalty = typeof rulesConfig.wrongPenalty === 'number' ? rulesConfig.wrongPenalty : -10;
+  const unansweredPenalty = typeof rulesConfig.unansweredPenalty === 'number' ? rulesConfig.unansweredPenalty : -15;
+
   // submittedOptions is array of option IDs, e.g. ['A', 'C']
   // correctOptions is array of option IDs, e.g. ['A', 'C']
   if (!submittedOptions || !Array.isArray(submittedOptions) || submittedOptions.length === 0) {
@@ -111,9 +123,9 @@ export const evaluateRound3 = (submittedOptions, correctOptions) => {
       isCorrect: false,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: -15,
-      totalScore: -15,
-      explanation: 'Unattempted question (-15 pts penalty)'
+      penaltyPoints: unansweredPenalty,
+      totalScore: unansweredPenalty,
+      explanation: `Unattempted question (${unansweredPenalty} pts penalty)`
     };
   }
 
@@ -127,20 +139,20 @@ export const evaluateRound3 = (submittedOptions, correctOptions) => {
   if (isExactMatch) {
     return {
       isCorrect: true,
-      basePoints: 20,
+      basePoints: correctPoints,
       bonusPoints: 0,
       penaltyPoints: 0,
-      totalScore: 20,
-      explanation: 'Exact correct combination selected (+20 pts)'
+      totalScore: correctPoints,
+      explanation: `Exact correct combination selected (+${correctPoints} pts)`
     };
   } else {
     return {
       isCorrect: false,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: -10,
-      totalScore: -10,
-      explanation: 'Incorrect option combination (-10 pts penalty)'
+      penaltyPoints: wrongPenalty,
+      totalScore: wrongPenalty,
+      explanation: `Incorrect option combination (${wrongPenalty} pts penalty)`
     };
   }
 };

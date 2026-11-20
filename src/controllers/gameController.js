@@ -166,14 +166,17 @@ export const startQuestion = async (req, res) => {
       });
     }
 
-    // Fetch duration from question or settings
+    // Fetch duration from settings (or question override)
     const settings = await CompetitionSettings.findOne({ key: 'GLOBAL_SETTINGS' });
-    let duration = question.timerSeconds;
-    if (!duration) {
-      if (state.currentRound === 1) duration = settings?.round1Timer || 30;
-      else if (state.currentRound === 2) duration = settings?.round2Timer || 15;
-      else if (state.currentRound === 3) duration = settings?.round3Timer || 30;
-      else duration = 30;
+    let duration;
+    if (state.currentRound === 1) {
+      duration = settings?.round1Timer || question.timerSeconds || 30;
+    } else if (state.currentRound === 2) {
+      duration = settings?.round2Timer || question.timerSeconds || 15;
+    } else if (state.currentRound === 3) {
+      duration = settings?.round3Timer || question.timerSeconds || 30;
+    } else {
+      duration = question.timerSeconds || 30;
     }
 
     const now = new Date();
@@ -322,7 +325,9 @@ export const revealAnswer = async (req, res) => {
     const responseMap = new Map();
     responses.forEach(r => responseMap.set(r.teamId.toString(), r));
 
-    // 3. For Round 1, determine fastest completely correct submission within 15 seconds
+    // 3. For Round 1, determine fastest completely correct submission within configured threshold
+    const settings = await CompetitionSettings.findOne({ key: 'GLOBAL_SETTINGS' });
+    const bonusThreshold = settings?.round1BonusThresholdSeconds ?? 15;
     let fastestWinnerTeamId = null;
     if (question.round === 1) {
       let minTime = Infinity;
@@ -331,7 +336,7 @@ export const revealAnswer = async (req, res) => {
           r.answerData.length === question.round1CorrectOrder?.length &&
           r.answerData.every((val, idx) => val === question.round1CorrectOrder[idx]);
 
-        if (isExact && r.submissionTimeSeconds <= 15) {
+        if (isExact && r.submissionTimeSeconds <= bonusThreshold) {
           if (r.submissionTimeSeconds < minTime) {
             minTime = r.submissionTimeSeconds;
             fastestWinnerTeamId = r.teamId.toString();
@@ -340,7 +345,7 @@ export const revealAnswer = async (req, res) => {
       });
     }
 
-    // 4. Evaluate each team idempotently
+    // 4. Evaluate each team idempotently using configured rules
     const evaluatedResults = [];
 
     for (const team of teams) {
@@ -353,13 +358,25 @@ export const revealAnswer = async (req, res) => {
       if (question.round === 1) {
         const isFastest = teamIdStr === fastestWinnerTeamId;
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound1(submitted, question.round1CorrectOrder || [], submissionTimeSeconds, isFastest);
+        evaluation = evaluateRound1(submitted, question.round1CorrectOrder || [], submissionTimeSeconds, isFastest, {
+          points: settings?.round1Points ?? 10,
+          bonus: settings?.round1Bonus ?? 5,
+          bonusThresholdSeconds: bonusThreshold
+        });
       } else if (question.round === 2) {
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound2(submitted, question.round2Defects || []);
+        evaluation = evaluateRound2(submitted, question.round2Defects || [], {
+          allCorrectPoints: settings?.round2AllCorrectPoints ?? 10,
+          partialPoints: settings?.round2PartialPoints ?? 5,
+          penaltyPoints: settings?.round2PenaltyPoints ?? -5
+        });
       } else if (question.round === 3) {
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound3(submitted, question.round3CorrectOptions || []);
+        evaluation = evaluateRound3(submitted, question.round3CorrectOptions || [], {
+          correctPoints: settings?.round3CorrectPoints ?? 20,
+          wrongPenalty: settings?.round3WrongPenalty ?? -10,
+          unansweredPenalty: settings?.round3UnansweredPenalty ?? -15
+        });
       }
 
       // Record score ledger entry idempotently
