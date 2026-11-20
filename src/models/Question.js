@@ -102,13 +102,13 @@ questionSchema.methods.toParticipantJSON = function() {
     if (!obj.round2Images || obj.round2Images.length === 0) {
       obj.round2Images = obj.round2Defects.map((d, idx) => ({
         id: letters[idx] || String(idx + 1),
-        imageUrl: d.imageUrl || obj.round2ImageUrl || ''
+        imageUrl: d.imageUrl || ''
       }));
     } else {
-      // Ensure any item with empty imageUrl gets populated from defects or round2ImageUrl
+      // Ensure any item with empty imageUrl gets populated from defects
       obj.round2Images = obj.round2Images.map((img, idx) => ({
         id: img.id || letters[idx] || String(idx + 1),
-        imageUrl: img.imageUrl || obj.round2Defects[idx]?.imageUrl || obj.round2ImageUrl || ''
+        imageUrl: img.imageUrl || obj.round2Defects[idx]?.imageUrl || ''
       }));
     }
 
