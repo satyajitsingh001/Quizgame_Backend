@@ -95,15 +95,18 @@ export const updateQuestion = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    const question = await Question.findById(id);
-    if (!question) {
+    const existing = await Question.findById(id);
+    if (!existing) {
       return res.status(404).json({ message: 'Question not found' });
     }
 
-    const previousValue = { prompt: question.prompt, round: question.round, questionNumber: question.questionNumber };
+    const previousValue = { prompt: existing.prompt, round: existing.round, questionNumber: existing.questionNumber };
 
-    Object.assign(question, updateData);
-    await question.save();
+    const question = await Question.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
 
     // If timer was updated, synchronize the round timer across CompetitionSettings and all questions in this round
     if (updateData.timerSeconds && typeof updateData.timerSeconds === 'number' && updateData.timerSeconds > 0) {
