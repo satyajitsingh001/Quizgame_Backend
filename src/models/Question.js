@@ -9,8 +9,7 @@ const questionSchema = new mongoose.Schema({
   questionNumber: {
     type: Number,
     required: true,
-    min: 1,
-    max: 5
+    min: 1
   },
   prompt: {
     type: String,
