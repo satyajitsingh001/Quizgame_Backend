@@ -38,16 +38,24 @@ const questionSchema = new mongoose.Schema({
     type: String // array of ids in correct sequence, e.g. ['C', 'A', 'D', 'B']
   }],
 
-  // Round 2 Specific Fields: Defect Image & Matching
+  // Round 2 Specific Fields: 4 Zones & 4 Images
   round2ImageUrl: {
     type: String,
     default: ''
   },
+  round2Images: [{
+    id: { type: String, required: true }, // e.g. 'A', 'B', 'C', 'D'
+    imageUrl: { type: String, default: '' }
+  }],
   round2Defects: [{
     id: { type: String, required: true }, // e.g. '1', '2', '3', '4'
-    label: { type: String, required: true }, // e.g. 'Defect Zone #1'
-    correctTerm: { type: String, required: true }, // e.g. 'Solder Bridging' or target name like 'Cat'
+    label: { type: String, required: true }, // e.g. 'Zone #1'
+    correctTerm: { type: String, required: true }, // e.g. 'Cat', 'Car', 'Ball', 'Dog'
+    correctImageId: { type: String, default: 'A' }, // 'A', 'B', 'C', 'D'
     imageUrl: { type: String, default: '' } // uploaded image for this zone/name
+  }],
+  round2InitialOrder: [{
+    type: String // image IDs in random scrambled order e.g. ['B', 'D', 'A', 'C']
   }],
   round2TermOptions: [{
     type: String // available terms to choose from
@@ -92,6 +100,7 @@ questionSchema.methods.toParticipantJSON = function() {
       label: d.label,
       correctTerm: d.correctTerm,
       imageUrl: d.imageUrl || ''
+      // hide correctImageId from participant
     }));
   }
   return obj;

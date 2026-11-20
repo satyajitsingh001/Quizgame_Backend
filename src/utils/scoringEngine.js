@@ -83,6 +83,7 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
         placed !== undefined &&
         placed !== null &&
         (String(placed).trim().toLowerCase() === String(defect.id).trim().toLowerCase() ||
+          String(placed).trim().toLowerCase() === String(defect.correctImageId || '').trim().toLowerCase() ||
           String(placed).trim().toLowerCase() === String(defect.correctTerm).trim().toLowerCase() ||
           (defect.imageUrl && String(placed).trim() === String(defect.imageUrl).trim()))
       ) {
@@ -96,7 +97,8 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
       if (
         userTerm !== undefined &&
         userTerm !== null &&
-        (String(userTerm).trim().toLowerCase() === String(defect.correctTerm).trim().toLowerCase() ||
+        (String(userTerm).trim().toLowerCase() === String(defect.correctImageId || '').trim().toLowerCase() ||
+          String(userTerm).trim().toLowerCase() === String(defect.correctTerm).trim().toLowerCase() ||
           String(userTerm).trim().toLowerCase() === String(defect.id).trim().toLowerCase() ||
           (defect.imageUrl && String(userTerm).trim() === String(defect.imageUrl).trim()))
       ) {
