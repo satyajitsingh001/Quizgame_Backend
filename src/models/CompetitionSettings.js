@@ -14,14 +14,6 @@ const competitionSettingsSchema = new mongoose.Schema({
     type: String,
     default: 'Think Fast. Identify Defects. Win the Challenge.'
   },
-  maxTeams: {
-    type: Number,
-    default: 20
-  },
-  teamSize: {
-    type: Number,
-    default: 5
-  },
   isRegistrationOpen: {
     type: Boolean,
     default: true

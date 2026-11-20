@@ -42,8 +42,6 @@ export const seedDatabase = async () => {
         key: 'GLOBAL_SETTINGS',
         competitionTitle: 'Powering Performance 2026 – The Ultimate Quality Challenge',
         subTitle: 'Think Fast. Identify Defects. Win the Challenge.',
-        maxTeams: 20,
-        teamSize: 5,
         isRegistrationOpen: true,
         requireApproval: false,
         round1Timer: 30,
