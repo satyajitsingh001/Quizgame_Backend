@@ -1,4 +1,5 @@
 import Question from '../models/Question.js';
+import CompetitionSettings from '../models/CompetitionSettings.js';
 import { createAuditLog } from '../middleware/auth.js';
 
 export const getQuestions = async (req, res) => {
@@ -99,6 +100,16 @@ export const updateQuestion = async (req, res) => {
 
     Object.assign(question, updateData);
     await question.save();
+
+    // If timer was updated, synchronize the round timer across CompetitionSettings and all questions in this round
+    if (updateData.timerSeconds && typeof updateData.timerSeconds === 'number' && updateData.timerSeconds > 0) {
+      const settingKey = question.round === 1 ? 'round1Timer' : question.round === 2 ? 'round2Timer' : 'round3Timer';
+      await CompetitionSettings.findOneAndUpdate(
+        { key: 'GLOBAL_SETTINGS' },
+        { [settingKey]: updateData.timerSeconds }
+      );
+      await Question.updateMany({ round: question.round }, { timerSeconds: updateData.timerSeconds });
+    }
 
     await createAuditLog({
       admin: req.admin?.username || 'ADMIN',
