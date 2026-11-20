@@ -94,7 +94,29 @@ questionSchema.methods.toParticipantJSON = function() {
   const obj = this.toObject();
   delete obj.round1CorrectOrder;
   delete obj.round3CorrectOptions;
-  if (obj.round2Defects) {
+
+  if (obj.round2Defects && obj.round2Defects.length > 0) {
+    const letters = ['A', 'B', 'C', 'D'];
+
+    // Ensure round2Images is always an array of { id, imageUrl } with resolved images
+    if (!obj.round2Images || obj.round2Images.length === 0) {
+      obj.round2Images = obj.round2Defects.map((d, idx) => ({
+        id: letters[idx] || String(idx + 1),
+        imageUrl: d.imageUrl || obj.round2ImageUrl || ''
+      }));
+    } else {
+      // Ensure any item with empty imageUrl gets populated from defects or round2ImageUrl
+      obj.round2Images = obj.round2Images.map((img, idx) => ({
+        id: img.id || letters[idx] || String(idx + 1),
+        imageUrl: img.imageUrl || obj.round2Defects[idx]?.imageUrl || obj.round2ImageUrl || ''
+      }));
+    }
+
+    // Ensure round2InitialOrder is always set for participants
+    if (!obj.round2InitialOrder || obj.round2InitialOrder.length !== obj.round2Defects.length) {
+      obj.round2InitialOrder = letters.slice(0, obj.round2Defects.length);
+    }
+
     obj.round2Defects = obj.round2Defects.map(d => ({
       id: d.id,
       label: d.label,
@@ -103,6 +125,7 @@ questionSchema.methods.toParticipantJSON = function() {
       // hide correctImageId from participant
     }));
   }
+
   return obj;
 };
 
