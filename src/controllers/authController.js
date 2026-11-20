@@ -69,14 +69,8 @@ export const teamLogin = async (req, res) => {
       return res.status(403).json({ message: 'Your registration was rejected by Admin' });
     }
 
-    // Generate unique session token for single device participation
-    const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-    team.sessionToken = sessionToken;
-    team.lastLoginAt = new Date();
-    await team.save();
-
     const token = jwt.sign(
-      { id: team._id, teamId: team.teamId, teamName: team.teamName, role: 'TEAM', sessionToken },
+      { id: team._id, teamId: team.teamId, teamName: team.teamName, role: 'TEAM' },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '30d' }
     );
@@ -88,8 +82,6 @@ export const teamLogin = async (req, res) => {
         id: team._id,
         teamId: team.teamId,
         teamName: team.teamName,
-        members: team.members,
-        captainName: team.captainName,
         status: team.status
       }
     });

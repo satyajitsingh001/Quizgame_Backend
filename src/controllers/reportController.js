@@ -12,33 +12,24 @@ export const exportReport = async (req, res) => {
     let sheetName = 'Report';
 
     if (type === 'registration') {
-      sheetName = 'Team Registrations';
+      sheetName = 'User Registrations';
       const teams = await Team.find().sort({ teamId: 1 });
       data = teams.map(t => ({
-        'Team ID': t.teamId,
-        'Team Name': t.teamName,
-        'Captain': t.captainName,
-        'Member 1': t.members[0]?.name || '',
-        'Member 2': t.members[1]?.name || '',
-        'Member 3': t.members[2]?.name || '',
-        'Member 4': t.members[3]?.name || '',
-        'Member 5': t.members[4]?.name || '',
+        'User ID': t.teamId,
+        'User Name': t.teamName,
         'Contact': t.contactNumber || 'N/A',
         'Status': t.status,
-        'Registered At': t.createdAt.toISOString()
+        'Registered At': t.createdAt ? t.createdAt.toISOString() : ''
       }));
     } else if (type === 'participants') {
       sheetName = 'Participants';
       const teams = await Team.find().sort({ teamId: 1 });
       teams.forEach(t => {
-        t.members.forEach(m => {
-          data.push({
-            'Participant Name': m.name,
-            'Team ID': t.teamId,
-            'Team Name': t.teamName,
-            'Role': m.isCaptain ? 'Captain' : 'Member',
-            'Contact': t.contactNumber || 'N/A'
-          });
+        data.push({
+          'User ID': t.teamId,
+          'Participant Name': t.teamName,
+          'Contact': t.contactNumber || 'N/A',
+          'Status': t.status
         });
       });
     } else if (type === 'round1') {

@@ -63,10 +63,10 @@ export const seedDatabase = async () => {
     );
     console.log('[Setup] Competition settings initialized.');
 
-    // 3. Clean initial game state
-    await GameState.findOneAndUpdate(
-      { key: 'LIVE_GAME_STATE' },
-      {
+    // 3. Ensure initial game state exists (without overwriting if already running)
+    const existingState = await GameState.findOne({ key: 'LIVE_GAME_STATE' });
+    if (!existingState) {
+      await GameState.create({
         key: 'LIVE_GAME_STATE',
         competitionTitle: 'Powering Performance 2026 – The Ultimate Quality Challenge',
         status: 'NOT_STARTED',
@@ -76,18 +76,9 @@ export const seedDatabase = async () => {
         questionStatus: 'IDLE',
         timerDuration: 30,
         isLeaderboardVisibleToTeams: true
-      },
-      { upsert: true, returnDocument: 'after' }
-    );
-    console.log('[Setup] Game state initialized.');
-
-    // 4. PURGE ALL DEMO DATA: Questions, Teams, Responses, Score Ledgers
-    await Question.deleteMany({});
-    await Team.deleteMany({});
-    await Response.deleteMany({});
-    await ScoreLedger.deleteMany({});
-    console.log('[Setup] Purged all demo questions, demo teams, and demo score records. System is 100% clean for manual entry.');
-
+      });
+      console.log('[Setup] Game state initialized.');
+    }
   } catch (err) {
     console.error('[Setup Error]:', err);
   }
