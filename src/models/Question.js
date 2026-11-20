@@ -46,7 +46,8 @@ const questionSchema = new mongoose.Schema({
   round2Defects: [{
     id: { type: String, required: true }, // e.g. '1', '2', '3', '4'
     label: { type: String, required: true }, // e.g. 'Defect Zone #1'
-    correctTerm: { type: String, required: true } // e.g. 'Solder Bridging'
+    correctTerm: { type: String, required: true }, // e.g. 'Solder Bridging' or target name like 'Cat'
+    imageUrl: { type: String, default: '' } // uploaded image for this zone/name
   }],
   round2TermOptions: [{
     type: String // available terms to choose from
@@ -88,8 +89,9 @@ questionSchema.methods.toParticipantJSON = function() {
   if (obj.round2Defects) {
     obj.round2Defects = obj.round2Defects.map(d => ({
       id: d.id,
-      label: d.label
-      // remove correctTerm
+      label: d.label,
+      correctTerm: d.correctTerm,
+      imageUrl: d.imageUrl || ''
     }));
   }
   return obj;

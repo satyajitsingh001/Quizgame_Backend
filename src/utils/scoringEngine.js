@@ -55,8 +55,12 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
   const partialPoints = typeof rulesConfig.partialPoints === 'number' ? rulesConfig.partialPoints : 5;
   const penaltyPoints = typeof rulesConfig.penaltyPoints === 'number' ? rulesConfig.penaltyPoints : -5;
 
-  // correctDefects is array of { id, label, correctTerm }
-  if (!submittedMappings || typeof submittedMappings !== 'object' || Object.keys(submittedMappings).length === 0) {
+  if (
+    !submittedMappings ||
+    (typeof submittedMappings !== 'object' && !Array.isArray(submittedMappings)) ||
+    (Array.isArray(submittedMappings) && submittedMappings.length === 0) ||
+    (!Array.isArray(submittedMappings) && Object.keys(submittedMappings).length === 0)
+  ) {
     return {
       isCorrect: false,
       correctMatchesCount: 0,
@@ -71,14 +75,37 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
   const totalDefects = correctDefects.length;
   let correctCount = 0;
 
-  correctDefects.forEach(defect => {
-    const userTerm = submittedMappings[defect.id];
-    if (userTerm && userTerm.trim().toLowerCase() === defect.correctTerm.trim().toLowerCase()) {
-      correctCount++;
-    }
-  });
+  if (Array.isArray(submittedMappings)) {
+    // Array format: [placedIdSlot1, placedIdSlot2, placedIdSlot3, placedIdSlot4]
+    correctDefects.forEach((defect, idx) => {
+      const placed = submittedMappings[idx];
+      if (
+        placed !== undefined &&
+        placed !== null &&
+        (String(placed).trim().toLowerCase() === String(defect.id).trim().toLowerCase() ||
+          String(placed).trim().toLowerCase() === String(defect.correctTerm).trim().toLowerCase() ||
+          (defect.imageUrl && String(placed).trim() === String(defect.imageUrl).trim()))
+      ) {
+        correctCount++;
+      }
+    });
+  } else {
+    // Object format: { [zoneId]: placedIdOrTerm }
+    correctDefects.forEach(defect => {
+      const userTerm = submittedMappings[defect.id];
+      if (
+        userTerm !== undefined &&
+        userTerm !== null &&
+        (String(userTerm).trim().toLowerCase() === String(defect.correctTerm).trim().toLowerCase() ||
+          String(userTerm).trim().toLowerCase() === String(defect.id).trim().toLowerCase() ||
+          (defect.imageUrl && String(userTerm).trim() === String(defect.imageUrl).trim()))
+      ) {
+        correctCount++;
+      }
+    });
+  }
 
-  if (correctCount === totalDefects) {
+  if (correctCount === totalDefects && totalDefects > 0) {
     return {
       isCorrect: true,
       correctMatchesCount: correctCount,
@@ -86,7 +113,7 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
       bonusPoints: 0,
       penaltyPoints: 0,
       totalScore: allCorrectPoints,
-      explanation: `All ${correctCount}/${totalDefects} defect matches correct (+${allCorrectPoints} pts)`
+      explanation: `All ${correctCount}/${totalDefects} image matches correct (+${allCorrectPoints} pts)`
     };
   } else if (correctCount >= 3) {
     return {
