@@ -60,11 +60,11 @@ export const teamAuth = async (req, res, next) => {
       team = await Team.findOne({ teamId: decoded.teamId.toUpperCase() });
     }
     if (!team) {
-      return res.status(401).json({ message: 'Team not found' });
+      return res.status(401).json({ message: 'Team not found', teamDeleted: true });
     }
 
     if (team.status === 'rejected') {
-      return res.status(403).json({ message: 'Team registration is rejected' });
+      return res.status(403).json({ message: 'Team registration is rejected', teamDeleted: true });
     }
 
     req.team = team;

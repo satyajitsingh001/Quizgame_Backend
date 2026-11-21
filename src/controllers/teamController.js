@@ -1,6 +1,8 @@
 import Team from '../models/Team.js';
 import CompetitionSettings from '../models/CompetitionSettings.js';
 import { createAuditLog } from '../middleware/auth.js';
+import Response from '../models/Response.js';
+import ScoreLedger from '../models/ScoreLedger.js';
 
 export const registerTeam = async (req, res) => {
   try {
@@ -168,6 +170,10 @@ export const deleteTeam = async (req, res) => {
     }
 
     await Team.findByIdAndDelete(id);
+
+    // Also clean up responses and scores associated with this deleted team
+    await Response.deleteMany({ teamId: team._id });
+    await ScoreLedger.deleteMany({ teamId: team._id });
 
     await createAuditLog({
       admin: req.admin?.username || 'ADMIN',

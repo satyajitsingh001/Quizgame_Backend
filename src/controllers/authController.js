@@ -124,7 +124,7 @@ export const getMe = async (req, res) => {
         team = await Team.findOne({ teamId: decoded.teamId.toUpperCase() });
       }
       if (!team) {
-        return res.status(404).json({ message: 'Team not found' });
+        return res.status(401).json({ message: 'Team not found', teamDeleted: true });
       }
       return res.status(200).json({ role: 'TEAM', team });
     }
