@@ -23,6 +23,20 @@ export const getGameState = async (req, res) => {
       } else {
         questionData = state.currentQuestionId.toParticipantJSON();
       }
+    } else if (state.currentRound && state.currentQuestionNumber && (state.questionStatus === 'ACTIVE' || state.questionStatus === 'PAUSED')) {
+      // Self-heal orphaned/deleted currentQuestionId
+      const q = await Question.findOne({ round: state.currentRound, questionNumber: state.currentQuestionNumber });
+      if (q) {
+        state.currentQuestionId = q._id;
+        await state.save();
+        const isAdmin = req.admin !== undefined;
+        questionData = (isAdmin || state.questionStatus === 'REVEALED') ? q : q.toParticipantJSON();
+      } else {
+        // Question was deleted or not found: reset to IDLE so system does not remain stuck
+        state.questionStatus = 'IDLE';
+        state.currentQuestionId = null;
+        await state.save();
+      }
     }
 
     // Calculate real-time remaining seconds
@@ -239,6 +253,11 @@ export const resumeQuestion = async (req, res) => {
     let state = await GameState.findOne({ key: 'LIVE_GAME_STATE' }).populate('currentQuestionId');
     if (!state || state.questionStatus !== 'PAUSED') {
       return res.status(400).json({ message: 'Question is not paused' });
+    }
+
+    if (!state.currentQuestionId && state.currentRound && state.currentQuestionNumber) {
+      const q = await Question.findOne({ round: state.currentRound, questionNumber: state.currentQuestionNumber });
+      if (q) state.currentQuestionId = q._id;
     }
 
     const now = new Date();

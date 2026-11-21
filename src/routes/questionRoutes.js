@@ -10,19 +10,29 @@ import {
   deleteQuestion
 } from '../controllers/questionController.js';
 import { adminAuth } from '../middleware/auth.js';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Ensure uploads folder exists
-const uploadDir = path.resolve('uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// Ensure canonical uploads folder exists (both in backend/uploads and cwd/uploads)
+const canonicalUploadDir = path.resolve(__dirname, '../../uploads');
+const cwdUploadDir = path.resolve('uploads');
+
+const uploadDir = fs.existsSync(canonicalUploadDir) ? canonicalUploadDir : cwdUploadDir;
+if (!fs.existsSync(canonicalUploadDir)) {
+  fs.mkdirSync(canonicalUploadDir, { recursive: true });
+}
+if (!fs.existsSync(cwdUploadDir)) {
+  try { fs.mkdirSync(cwdUploadDir, { recursive: true }); } catch {}
 }
 
 // Multer storage setup
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadDir);
+    cb(null, canonicalUploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
