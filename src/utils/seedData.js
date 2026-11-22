@@ -44,22 +44,27 @@ export const seedDatabase = async () => {
         subTitle: 'Think Fast. Identify Defects. Win the Challenge.',
         isRegistrationOpen: true,
         requireApproval: false,
-        round1Timer: 30,
-        round1Points: 10,
-        round1Bonus: 5,
-        round2Timer: 15,
-        round2AllCorrectPoints: 10,
-        round2PartialPoints: 5,
-        round2PenaltyPoints: -5,
+        round1Timer: 60,
+        round1Points: 2.0,
+        round1Bonus: 0,
+        round2Timer: 45,
+        round2AllCorrectPoints: 2,
+        round2PartialPoints: 0,
+        round2PenaltyPoints: 0,
         round3Timer: 30,
-        round3CorrectPoints: 20,
-        round3WrongPenalty: -10,
-        round3UnansweredPenalty: -15,
+        round3CorrectPoints: 2,
+        round3WrongPenalty: 0,
+        round3UnansweredPenalty: 0,
         isLeaderboardVisibleToTeams: true
       },
       { upsert: true, returnDocument: 'after' }
     );
     console.log('[Setup] Competition settings initialized.');
+
+    // Ensure questions default to confirmed round timers
+    await Question.updateMany({ round: 1, $or: [{ timerSeconds: { $exists: false } }, { timerSeconds: 30 }, { timerSeconds: 15 }] }, { timerSeconds: 60 });
+    await Question.updateMany({ round: 2, $or: [{ timerSeconds: { $exists: false } }, { timerSeconds: 15 }, { timerSeconds: 20 }, { timerSeconds: 25 }, { timerSeconds: 30 }] }, { timerSeconds: 45 });
+    await Question.updateMany({ round: 3, $or: [{ timerSeconds: { $exists: false } }] }, { timerSeconds: 30 });
 
     // 3. Ensure initial game state exists (without overwriting if already running)
     const existingState = await GameState.findOne({ key: 'LIVE_GAME_STATE' });

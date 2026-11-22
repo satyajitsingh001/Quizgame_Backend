@@ -27,23 +27,23 @@ const competitionSettingsSchema = new mongoose.Schema({
     default: false
   },
   // Round 1 Rules
-  round1Timer: { type: Number, default: 30 },
-  round1Points: { type: Number, default: 10 },
-  round1Bonus: { type: Number, default: 5 },
-  round1BonusThresholdSeconds: { type: Number, default: 15 },
-  round1BonusOnlyFastest: { type: Boolean, default: true },
+  round1Timer: { type: Number, default: 60 },
+  round1Points: { type: Number, default: 2.0 },
+  round1Bonus: { type: Number, default: 0 },
+  round1BonusThresholdSeconds: { type: Number, default: 60 },
+  round1BonusOnlyFastest: { type: Boolean, default: false },
 
   // Round 2 Rules
-  round2Timer: { type: Number, default: 15 },
-  round2AllCorrectPoints: { type: Number, default: 10 },
-  round2PartialPoints: { type: Number, default: 5 },
-  round2PenaltyPoints: { type: Number, default: -5 },
+  round2Timer: { type: Number, default: 45 },
+  round2AllCorrectPoints: { type: Number, default: 2 },
+  round2PartialPoints: { type: Number, default: 0 },
+  round2PenaltyPoints: { type: Number, default: 0 },
 
   // Round 3 Rules
   round3Timer: { type: Number, default: 30 },
-  round3CorrectPoints: { type: Number, default: 20 },
-  round3WrongPenalty: { type: Number, default: -10 },
-  round3UnattemptedPenalty: { type: Number, default: -15 },
+  round3CorrectPoints: { type: Number, default: 2 },
+  round3WrongPenalty: { type: Number, default: 0 },
+  round3UnattemptedPenalty: { type: Number, default: 0 },
 
   // UI & Visibility
   isLeaderboardVisibleToTeams: {

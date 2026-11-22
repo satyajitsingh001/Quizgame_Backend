@@ -23,8 +23,8 @@ const questionSchema = new mongoose.Schema({
   timerSeconds: {
     type: Number,
     default: function() {
-      if (this.round === 1) return 30;
-      if (this.round === 2) return 15;
+      if (this.round === 1) return 60;
+      if (this.round === 2) return 45;
       if (this.round === 3) return 30;
       return 30;
     }

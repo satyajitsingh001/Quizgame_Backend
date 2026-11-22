@@ -40,10 +40,10 @@ export const getLeaderboard = async (req, res) => {
 
     const leaderboard = teams.map(team => {
       const idStr = team._id.toString();
-      const r1 = roundScoreMap.get(`${idStr}_1`) || 0;
-      const r2 = roundScoreMap.get(`${idStr}_2`) || 0;
-      const r3 = roundScoreMap.get(`${idStr}_3`) || 0;
-      const totalScore = r1 + r2 + r3;
+      const r1 = parseFloat((roundScoreMap.get(`${idStr}_1`) || 0).toFixed(1));
+      const r2 = parseFloat((roundScoreMap.get(`${idStr}_2`) || 0).toFixed(1));
+      const r3 = parseFloat((roundScoreMap.get(`${idStr}_3`) || 0).toFixed(1));
+      const totalScore = parseFloat((r1 + r2 + r3).toFixed(1));
       const totalTime = timeMap.get(idStr) || 0;
 
       return {

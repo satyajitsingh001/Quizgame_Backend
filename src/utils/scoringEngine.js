@@ -1,20 +1,31 @@
 /**
- * Pure scoring calculation functions according to configured PRD Rules.
+ * Pure scoring calculation functions according to Confirmed Rules (Powering Performance 2026):
+ * - Round 1 (Fastest Finger First): 60s per question.
+ *   Points decrease by 0.2 per correct submission rank:
+ *   1st: 2.0, 2nd: 1.8, 3rd: 1.6, 4th: 1.4, 5th: 1.2,
+ *   6th: 1.0, 7th: 0.8, 8th: 0.6, 9th: 0.4, 10th: 0.2, 11th+: 0
+ *   Incorrect answer: 0 pts. Unsubmitted/timeout: 0 pts.
+ * - Round 2 (Guess the Defect): 45s per question.
+ *   All defect matches correct: 2 pts.
+ *   Incorrect or incomplete matching: 0 pts.
+ *   No partial marks.
+ * - Round 3 (Quality MSQ): 30s per question.
+ *   Exact correct option combination: 2 pts.
+ *   Incorrect combination / unattempted: 0 pts.
+ *   No partial marks.
+ * - Total Max Score across 3 rounds (15 questions): 30 points.
  */
 
-export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSeconds, isFastestWinner = false, rulesConfig = {}) => {
-  const basePointsConfig = typeof rulesConfig.points === 'number' ? rulesConfig.points : 10;
-  const bonusPointsConfig = typeof rulesConfig.bonus === 'number' ? rulesConfig.bonus : 5;
-  const threshold = rulesConfig.bonusThresholdSeconds || 15;
-
+export const evaluateRound1 = (submittedOrder, correctOrder, submissionRank = null, rulesConfig = {}) => {
   if (!submittedOrder || !Array.isArray(submittedOrder) || submittedOrder.length === 0) {
     return {
       isCorrect: false,
+      rank: null,
       basePoints: 0,
       bonusPoints: 0,
       penaltyPoints: 0,
       totalScore: 0,
-      explanation: 'No submission or timed out (0 pts)'
+      explanation: 'No submission within 60 seconds (0 pts)'
     };
   }
 
@@ -26,6 +37,7 @@ export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSecon
   if (!isExactMatch) {
     return {
       isCorrect: false,
+      rank: null,
       basePoints: 0,
       bonusPoints: 0,
       penaltyPoints: 0,
@@ -34,26 +46,28 @@ export const evaluateRound1 = (submittedOrder, correctOrder, submissionTimeSecon
     };
   }
 
-  const basePoints = basePointsConfig;
-  const bonusPoints = isFastestWinner ? bonusPointsConfig : 0;
-  const totalScore = basePoints + bonusPoints;
+  // Submission is completely correct! Determine points by correct submission rank
+  const rank = submissionRank && submissionRank > 0 ? submissionRank : 1;
+  let points = 0;
+  if (rank <= 10) {
+    points = parseFloat((2.0 - (rank - 1) * 0.2).toFixed(1));
+  } else {
+    points = 0;
+  }
 
   return {
     isCorrect: true,
-    basePoints,
-    bonusPoints,
+    rank,
+    basePoints: points,
+    bonusPoints: 0,
     penaltyPoints: 0,
-    totalScore,
-    explanation: isFastestWinner
-      ? `Correct sequence (+${basePoints} pts) + Fastest correct within ${threshold}s bonus (+${bonusPoints} pts) = ${totalScore} pts`
-      : `Correct sequence (+${basePoints} pts)`
+    totalScore: points,
+    explanation: `Rank #${rank} correct submission (+${points} pts)`
   };
 };
 
 export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = {}) => {
-  const allCorrectPoints = typeof rulesConfig.allCorrectPoints === 'number' ? rulesConfig.allCorrectPoints : 10;
-  const partialPoints = typeof rulesConfig.partialPoints === 'number' ? rulesConfig.partialPoints : 5;
-  const penaltyPoints = typeof rulesConfig.penaltyPoints === 'number' ? rulesConfig.penaltyPoints : -5;
+  const allCorrectPoints = 2;
 
   if (
     !submittedMappings ||
@@ -66,9 +80,9 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
       correctMatchesCount: 0,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: penaltyPoints,
-      totalScore: penaltyPoints,
-      explanation: `Unanswered or timed out (${penaltyPoints} pts penalty)`
+      penaltyPoints: 0,
+      totalScore: 0,
+      explanation: 'No submission within 45 seconds (0 pts)'
     };
   }
 
@@ -115,17 +129,7 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
       bonusPoints: 0,
       penaltyPoints: 0,
       totalScore: allCorrectPoints,
-      explanation: `All ${correctCount}/${totalDefects} image matches correct (+${allCorrectPoints} pts)`
-    };
-  } else if (correctCount >= 3) {
-    return {
-      isCorrect: false,
-      correctMatchesCount: correctCount,
-      basePoints: partialPoints,
-      bonusPoints: 0,
-      penaltyPoints: 0,
-      totalScore: partialPoints,
-      explanation: `${correctCount}/${totalDefects} correct matches (Partial credit +${partialPoints} pts)`
+      explanation: `All defect matches correct (+${allCorrectPoints} pts)`
     };
   } else {
     return {
@@ -133,28 +137,24 @@ export const evaluateRound2 = (submittedMappings, correctDefects, rulesConfig = 
       correctMatchesCount: correctCount,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: penaltyPoints,
-      totalScore: penaltyPoints,
-      explanation: `Only ${correctCount}/${totalDefects} correct matches. Fewer than 3 correct matches (${penaltyPoints} pts penalty)`
+      penaltyPoints: 0,
+      totalScore: 0,
+      explanation: `Incorrect or incomplete matching (${correctCount}/${totalDefects} correct) (0 pts)`
     };
   }
 };
 
 export const evaluateRound3 = (submittedOptions, correctOptions, rulesConfig = {}) => {
-  const correctPoints = typeof rulesConfig.correctPoints === 'number' ? rulesConfig.correctPoints : 20;
-  const wrongPenalty = typeof rulesConfig.wrongPenalty === 'number' ? rulesConfig.wrongPenalty : -10;
-  const unansweredPenalty = typeof rulesConfig.unansweredPenalty === 'number' ? rulesConfig.unansweredPenalty : -15;
+  const correctPoints = 2;
 
-  // submittedOptions is array of option IDs, e.g. ['A', 'C']
-  // correctOptions is array of option IDs, e.g. ['A', 'C']
   if (!submittedOptions || !Array.isArray(submittedOptions) || submittedOptions.length === 0) {
     return {
       isCorrect: false,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: unansweredPenalty,
-      totalScore: unansweredPenalty,
-      explanation: `Unattempted question (${unansweredPenalty} pts penalty)`
+      penaltyPoints: 0,
+      totalScore: 0,
+      explanation: 'Unattempted / timeout (0 pts)'
     };
   }
 
@@ -172,16 +172,16 @@ export const evaluateRound3 = (submittedOptions, correctOptions, rulesConfig = {
       bonusPoints: 0,
       penaltyPoints: 0,
       totalScore: correctPoints,
-      explanation: `Exact correct combination selected (+${correctPoints} pts)`
+      explanation: `Exact correct option combination (+${correctPoints} pts)`
     };
   } else {
     return {
       isCorrect: false,
       basePoints: 0,
       bonusPoints: 0,
-      penaltyPoints: wrongPenalty,
-      totalScore: wrongPenalty,
-      explanation: `Incorrect option combination (${wrongPenalty} pts penalty)`
+      penaltyPoints: 0,
+      totalScore: 0,
+      explanation: 'Incorrect option combination (0 pts)'
     };
   }
 };

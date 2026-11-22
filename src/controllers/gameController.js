@@ -184,9 +184,9 @@ export const startQuestion = async (req, res) => {
     const settings = await CompetitionSettings.findOne({ key: 'GLOBAL_SETTINGS' });
     let duration;
     if (state.currentRound === 1) {
-      duration = settings?.round1Timer || question.timerSeconds || 30;
+      duration = settings?.round1Timer || question.timerSeconds || 60;
     } else if (state.currentRound === 2) {
-      duration = settings?.round2Timer || question.timerSeconds || 15;
+      duration = settings?.round2Timer || question.timerSeconds || 45;
     } else if (state.currentRound === 3) {
       duration = settings?.round3Timer || question.timerSeconds || 30;
     } else {
@@ -344,27 +344,31 @@ export const revealAnswer = async (req, res) => {
     const responseMap = new Map();
     responses.forEach(r => responseMap.set(r.teamId.toString(), r));
 
-    // 3. For Round 1, determine fastest completely correct submission within configured threshold
-    const settings = await CompetitionSettings.findOne({ key: 'GLOBAL_SETTINGS' });
-    const bonusThreshold = settings?.round1BonusThresholdSeconds ?? 15;
-    let fastestWinnerTeamId = null;
+    // 3. For Round 1, rank all completely correct submissions by server-side timestamp
+    const correctRankMap = new Map(); // teamIdStr -> rank (1, 2, 3...)
     if (question.round === 1) {
-      let minTime = Infinity;
-      responses.forEach(r => {
-        const isExact = Array.isArray(r.answerData) &&
+      const correctResponses = responses.filter(r => {
+        return (
+          Array.isArray(r.answerData) &&
           r.answerData.length === question.round1CorrectOrder?.length &&
-          r.answerData.every((val, idx) => val === question.round1CorrectOrder[idx]);
+          r.answerData.every((val, idx) => val === question.round1CorrectOrder[idx])
+        );
+      });
 
-        if (isExact && r.submissionTimeSeconds <= bonusThreshold) {
-          if (r.submissionTimeSeconds < minTime) {
-            minTime = r.submissionTimeSeconds;
-            fastestWinnerTeamId = r.teamId.toString();
-          }
-        }
+      // Sort by server submission timestamp (earlier first)
+      correctResponses.sort((a, b) => {
+        const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.submissionTimeSeconds || 0) - (b.submissionTimeSeconds || 0);
+      });
+
+      correctResponses.forEach((r, idx) => {
+        correctRankMap.set(r.teamId.toString(), idx + 1);
       });
     }
 
-    // 4. Evaluate each team idempotently using configured rules
+    // 4. Evaluate each team idempotently using confirmed rules
     const evaluatedResults = [];
 
     for (const team of teams) {
@@ -372,30 +376,17 @@ export const revealAnswer = async (req, res) => {
       const existingResponse = responseMap.get(teamIdStr);
 
       let evaluation = null;
-      let submissionTimeSeconds = existingResponse ? existingResponse.submissionTimeSeconds : 0;
 
       if (question.round === 1) {
-        const isFastest = teamIdStr === fastestWinnerTeamId;
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound1(submitted, question.round1CorrectOrder || [], submissionTimeSeconds, isFastest, {
-          points: settings?.round1Points ?? 10,
-          bonus: settings?.round1Bonus ?? 5,
-          bonusThresholdSeconds: bonusThreshold
-        });
+        const rank = correctRankMap.get(teamIdStr) || null;
+        evaluation = evaluateRound1(submitted, question.round1CorrectOrder || [], rank);
       } else if (question.round === 2) {
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound2(submitted, question.round2Defects || [], {
-          allCorrectPoints: settings?.round2AllCorrectPoints ?? 10,
-          partialPoints: settings?.round2PartialPoints ?? 5,
-          penaltyPoints: settings?.round2PenaltyPoints ?? -5
-        });
+        evaluation = evaluateRound2(submitted, question.round2Defects || []);
       } else if (question.round === 3) {
         const submitted = existingResponse ? existingResponse.answerData : null;
-        evaluation = evaluateRound3(submitted, question.round3CorrectOptions || [], {
-          correctPoints: settings?.round3CorrectPoints ?? 20,
-          wrongPenalty: settings?.round3WrongPenalty ?? -10,
-          unansweredPenalty: settings?.round3UnansweredPenalty ?? -15
-        });
+        evaluation = evaluateRound3(submitted, question.round3CorrectOptions || []);
       }
 
       // Record score ledger entry idempotently
