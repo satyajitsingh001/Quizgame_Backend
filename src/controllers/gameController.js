@@ -147,11 +147,14 @@ export const activateRound = async (req, res) => {
 
 export const startQuestion = async (req, res) => {
   try {
-    const { questionNumber } = req.body;
+    const { questionNumber, round } = req.body;
     let state = await GameState.findOne({ key: 'LIVE_GAME_STATE' });
-    if (!state || !state.currentRound) {
-      return res.status(400).json({ message: 'Please activate a round first' });
-    }
+    if (!state) state = new GameState({ key: 'LIVE_GAME_STATE' });
+
+    // Set round from request or fallback to state or 1
+    const targetRound = Number(round || state.currentRound || 1);
+    state.currentRound = targetRound;
+    state.status = 'RUNNING';
 
     // Prevent restarting questions that have already been evaluated and completed
     const alreadyInLedger = await ScoreLedger.exists({
@@ -456,32 +459,41 @@ export const revealAnswer = async (req, res) => {
 
 export const resetCompetition = async (req, res) => {
   try {
+    // 1. Delete all submitted responses and score ledger entries
     await Response.deleteMany({});
     await ScoreLedger.deleteMany({});
 
-    let state = await GameState.findOne({ key: 'LIVE_GAME_STATE' });
-    if (state) {
-      state.status = 'NOT_STARTED';
-      state.currentRound = null;
-      state.currentQuestionNumber = null;
-      state.currentQuestionId = null;
-      state.questionStatus = 'IDLE';
-      state.startTime = null;
-      state.endTime = null;
-      state.remainingSeconds = 0;
-      state.completedQuestions = [];
-      await state.save();
-    }
+    // 2. Fetch first question of round 1 to pre-link
+    const firstQ = await Question.findOne({ round: 1, questionNumber: 1 });
+
+    // 3. Atomically reset game state with findOneAndUpdate to guarantee completedQuestions is completely emptied in DB
+    const state = await GameState.findOneAndUpdate(
+      { key: 'LIVE_GAME_STATE' },
+      {
+        $set: {
+          status: 'NOT_STARTED',
+          currentRound: 1,
+          currentQuestionNumber: 1,
+          currentQuestionId: firstQ ? firstQ._id : null,
+          questionStatus: 'IDLE',
+          startTime: null,
+          endTime: null,
+          remainingSeconds: 0,
+          completedQuestions: []
+        }
+      },
+      { upsert: true, new: true }
+    );
 
     await createAuditLog({
       admin: req.admin?.username || 'ADMIN',
       action: 'COMPETITION_RESET',
       module: 'COMPETITION',
-      reference: 'All Responses and Scores cleared',
+      reference: 'All Responses and Scores cleared. Competition reset to NOT_STARTED.',
       req
     });
 
-    return res.status(200).json({ success: true, message: 'Competition has been reset successfully' });
+    return res.status(200).json({ success: true, message: 'Competition has been reset successfully', state });
   } catch (error) {
     return res.status(500).json({ message: 'Error resetting competition', error: error.message });
   }
